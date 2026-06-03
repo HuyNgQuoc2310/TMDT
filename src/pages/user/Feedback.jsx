@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import FeedbackCard from "../../components/FeedbackCard";
 import { useAuth } from "../../context/AuthContext";
 import { feedbacks as seedFeedbacks } from "../../data/catalog";
 import { useCatalog } from "../../hooks/useCatalog";
 import feedbackService from "../../services/feedbackService";
 import orderService from "../../services/orderService";
+
+function isCompletedOrder(order) {
+  return order.status === "Hoàn thành" || order.status === "HoÃ n thÃ nh";
+}
 
 function Feedback() {
   const { user } = useAuth();
@@ -14,12 +19,15 @@ function Feedback() {
   const [feedbacks, setFeedbacks] = useState([]);
   const [orders, setOrders] = useState([]);
   const [form, setForm] = useState({
+    orderId: "",
     productId: selectedProductId || "",
     rating: 5,
     comment: "",
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  const currentUserId = user?.id || 2;
 
   useEffect(() => {
     let mounted = true;
@@ -28,7 +36,7 @@ function Feedback() {
       try {
         const [feedbackData, orderData] = await Promise.all([
           feedbackService.getFeedbacks(),
-          orderService.getOrdersByUser(user?.id || 2),
+          orderService.getOrdersByUser(currentUserId),
         ]);
         if (mounted) {
           setFeedbacks(feedbackData);
@@ -46,50 +54,101 @@ function Feedback() {
     return () => {
       mounted = false;
     };
-  }, [user?.id]);
+  }, [currentUserId]);
 
-  const completedProductIds = useMemo(() => {
-    const ids = orders
-      .filter((order) => order.status === "Hoàn thành")
-      .flatMap((order) => order.items || [])
-      .map((item) => item.productId);
+  const productById = useMemo(
+    () => new Map(products.map((product) => [Number(product.id), product])),
+    [products]
+  );
 
-    return new Set(ids);
-  }, [orders]);
-
-  const reviewableProducts = useMemo(
-    () => products.filter((product) => completedProductIds.has(product.id)),
-    [completedProductIds, products]
+  const reviewableItems = useMemo(
+    () =>
+      orders
+        .filter(isCompletedOrder)
+        .flatMap((order) =>
+          (order.items || []).map((item) => ({
+            orderId: Number(order.id),
+            productId: Number(item.productId),
+            productName: item.name || productById.get(Number(item.productId))?.name || "Sản phẩm",
+          }))
+        ),
+    [orders, productById]
   );
 
   useEffect(() => {
-    if (selectedProductId && completedProductIds.has(Number(selectedProductId))) {
-      setForm((current) => ({ ...current, productId: selectedProductId }));
+    if (reviewableItems.length === 0) {
       return;
     }
 
-    if ((!form.productId || !completedProductIds.has(Number(form.productId))) && reviewableProducts[0]) {
-      setForm((current) => ({ ...current, productId: String(reviewableProducts[0].id) }));
-    }
-  }, [completedProductIds, form.productId, reviewableProducts, selectedProductId]);
+    const selectedItem = selectedProductId
+      ? reviewableItems.find((item) => Number(item.productId) === Number(selectedProductId))
+      : null;
+    const currentItem = reviewableItems.find(
+      (item) =>
+        Number(item.orderId) === Number(form.orderId) &&
+        Number(item.productId) === Number(form.productId)
+    );
+    const nextItem = selectedItem || currentItem || reviewableItems[0];
 
-  const productById = useMemo(
-    () => new Map(products.map((product) => [product.id, product])),
-    [products]
+    if (
+      Number(form.orderId) !== Number(nextItem.orderId) ||
+      Number(form.productId) !== Number(nextItem.productId)
+    ) {
+      setForm((current) => ({
+        ...current,
+        orderId: String(nextItem.orderId),
+        productId: String(nextItem.productId),
+      }));
+    }
+  }, [form.orderId, form.productId, reviewableItems, selectedProductId]);
+
+  const currentOrderId = Number(form.orderId || 0);
+  const currentProductId = Number(form.productId || selectedProductId || 0);
+  const visibleFeedbacks = useMemo(
+    () => feedbacks.filter((feedback) => Number(feedback.productId) === currentProductId),
+    [currentProductId, feedbacks]
   );
+  const currentProduct = productById.get(currentProductId);
+  const selectedReviewableItem = reviewableItems.find(
+    (item) => item.orderId === currentOrderId && item.productId === currentProductId
+  );
+  const alreadyReviewed = useMemo(
+    () =>
+      feedbacks.some(
+        (feedback) =>
+          Number(feedback.userId) === Number(currentUserId) &&
+          Number(feedback.productId) === currentProductId &&
+          Number(feedback.orderId) === currentOrderId
+      ),
+    [currentOrderId, currentProductId, currentUserId, feedbacks]
+  );
+
+  const handleItemChange = (value) => {
+    const [orderId, productId] = value.split(":");
+    setError("");
+    setSuccess("");
+    setForm((current) => ({ ...current, orderId, productId }));
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     setError("");
     setSuccess("");
-    if (!completedProductIds.has(Number(form.productId))) {
+
+    if (!selectedReviewableItem) {
       setError("Bạn chỉ có thể đánh giá sản phẩm trong đơn hàng đã hoàn thành.");
       return;
     }
 
+    if (alreadyReviewed) {
+      setError("Bạn đã đánh giá sản phẩm này trong đơn hàng này rồi.");
+      return;
+    }
+
     const payload = {
-      userId: user?.id || 2,
-      productId: Number(form.productId),
+      userId: currentUserId,
+      orderId: currentOrderId,
+      productId: currentProductId,
       rating: Number(form.rating),
       comment: form.comment,
     };
@@ -110,26 +169,29 @@ function Feedback() {
     <section className="content-page">
       <div className="section-heading">
         <span className="eyebrow">Đánh giá</span>
-        <h1>Gửi phản hồi sản phẩm</h1>
+        <h1>{currentProduct ? `Đánh giá ${currentProduct.name}` : "Gửi phản hồi sản phẩm"}</h1>
       </div>
 
       <div className="split-layout">
-        {reviewableProducts.length > 0 ? (
+        {reviewableItems.length > 0 ? (
           <form className="panel-form" onSubmit={handleSubmit}>
             {error && <p className="form-error">{error}</p>}
             {success && <p className="form-note">{success}</p>}
+            {alreadyReviewed && (
+              <p className="form-note">
+                Bạn đã đánh giá sản phẩm này trong đơn hàng này. Nếu mua lại ở đơn khác, bạn vẫn có thể đánh giá tiếp.
+              </p>
+            )}
             <label>
-              Sản phẩm
+              Đơn hàng và sản phẩm
               <select
-                value={form.productId}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, productId: event.target.value }))
-                }
+                value={`${form.orderId}:${form.productId}`}
+                onChange={(event) => handleItemChange(event.target.value)}
                 required
               >
-                {reviewableProducts.map((product) => (
-                  <option value={product.id} key={product.id}>
-                    {product.name}
+                {reviewableItems.map((item) => (
+                  <option value={`${item.orderId}:${item.productId}`} key={`${item.orderId}-${item.productId}`}>
+                    Đơn #{item.orderId} - {item.productName}
                   </option>
                 ))}
               </select>
@@ -141,6 +203,7 @@ function Feedback() {
                 onChange={(event) =>
                   setForm((current) => ({ ...current, rating: event.target.value }))
                 }
+                disabled={alreadyReviewed}
               >
                 <option value="5">5 sao</option>
                 <option value="4">4 sao</option>
@@ -156,11 +219,12 @@ function Feedback() {
                 onChange={(event) =>
                   setForm((current) => ({ ...current, comment: event.target.value }))
                 }
+                disabled={alreadyReviewed}
                 required
               />
             </label>
-            <button className="solid-button" type="submit">
-              Gửi đánh giá
+            <button className="solid-button" type="submit" disabled={alreadyReviewed}>
+              {alreadyReviewed ? "Đã đánh giá" : "Gửi đánh giá"}
             </button>
           </form>
         ) : (
@@ -171,13 +235,21 @@ function Feedback() {
         )}
 
         <div className="review-list">
-          {feedbacks.map((feedback) => (
-            <article className="review-card" key={feedback.id}>
-              <strong>{productById.get(feedback.productId)?.name || "Sản phẩm"}</strong>
-              <span>{"★".repeat(feedback.rating)}</span>
-              <p>{feedback.comment}</p>
-            </article>
-          ))}
+          <h2>Đánh giá của sản phẩm này</h2>
+          {visibleFeedbacks.length > 0 ? (
+            visibleFeedbacks.map((feedback) => (
+              <FeedbackCard
+                key={feedback.id}
+                feedback={feedback}
+                productName={productById.get(Number(feedback.productId))?.name || "Sản phẩm"}
+              />
+            ))
+          ) : (
+            <div className="empty-state">
+              <strong>Chưa có đánh giá</strong>
+              <p>Sản phẩm này chưa có phản hồi nào.</p>
+            </div>
+          )}
         </div>
       </div>
     </section>
