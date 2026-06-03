@@ -1216,3 +1216,37 @@ td select:focus {
     height: 68px;
   }
 }
+
+.product-reviews {
+  margin-top: 34px;
+}
+
+.compact-heading h2 {
+  font-size: 26px;
+  margin-bottom: 14px;
+}
+
+.rating-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  margin: 0 0 18px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.rating-summary strong {
+  color: var(--ink);
+}
+
+.rating-summary span {
+  color: #f0a000;
+  letter-spacing: 0;
+}
+
+.rating-summary small {
+  color: var(--muted);
+}
