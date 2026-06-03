@@ -6,6 +6,13 @@ export const feedbackService = {
     return data;
   },
 
+  async getFeedbacksByProduct(productId) {
+    const { data } = await api.get("/feedbacks", {
+      params: { productId },
+    });
+    return data;
+  },
+
   async createFeedback(payload) {
     const { data } = await api.post("/feedbacks", payload);
     return data;
