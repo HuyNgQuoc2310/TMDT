@@ -1,8 +1,11 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import FeedbackCard from "../../components/FeedbackCard";
 import { useAuth } from "../../context/AuthContext";
 import { useCart } from "../../context/CartContext";
+import { feedbacks as seedFeedbacks } from "../../data/catalog";
 import { useCatalog } from "../../hooks/useCatalog";
+import feedbackService from "../../services/feedbackService";
 import wishlistService from "../../services/wishlistService";
 import formatPrice from "../../utils/formatPrice";
 
@@ -12,7 +15,48 @@ function ProductDetail() {
   const { products, categoryById } = useCatalog();
   const { addToCart } = useCart();
   const [message, setMessage] = useState("");
+  const [feedbacks, setFeedbacks] = useState([]);
   const product = products.find((item) => item.id === Number(id));
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadFeedbacks() {
+      if (!id) {
+        return;
+      }
+
+      try {
+        const data = await feedbackService.getFeedbacksByProduct(Number(id));
+        if (mounted) {
+          setFeedbacks(data);
+        }
+      } catch {
+        if (mounted) {
+          setFeedbacks(seedFeedbacks.filter((feedback) => Number(feedback.productId) === Number(id)));
+        }
+      }
+    }
+
+    loadFeedbacks();
+    return () => {
+      mounted = false;
+    };
+  }, [id]);
+
+  const ratingStats = useMemo(() => {
+    const validFeedbacks = feedbacks.filter((feedback) => Number(feedback.rating) > 0);
+    const totalRating = validFeedbacks.reduce(
+      (total, feedback) => total + Number(feedback.rating),
+      0
+    );
+    const averageRating = validFeedbacks.length > 0 ? totalRating / validFeedbacks.length : 0;
+
+    return {
+      averageRating,
+      reviewCount: validFeedbacks.length,
+    };
+  }, [feedbacks]);
 
   const handleSaveWishlist = async () => {
     if (!product) {
@@ -44,6 +88,7 @@ function ProductDetail() {
   }
 
   const category = categoryById.get(product.categoryId);
+  const averageRatingText = ratingStats.averageRating.toFixed(1);
 
   return (
     <section className="detail-page">
@@ -55,6 +100,17 @@ function ProductDetail() {
         <h1>{product.name}</h1>
         <p>{product.description}</p>
         <div className="detail-price">{formatPrice(product.price)}</div>
+        <div className="rating-summary">
+          {ratingStats.reviewCount > 0 ? (
+            <>
+              <strong>{averageRatingText}/5</strong>
+              <span>{"★".repeat(Math.round(ratingStats.averageRating))}</span>
+              <small>{ratingStats.reviewCount} đánh giá</small>
+            </>
+          ) : (
+            <small>Chưa có điểm đánh giá</small>
+          )}
+        </div>
         <div className="detail-meta">
           <span>Còn {product.stock} sản phẩm</span>
           <span>Kiểm tra ngoại hình trước khi giao</span>
@@ -75,6 +131,30 @@ function ProductDetail() {
             Xem thêm sản phẩm
           </Link>
         </div>
+
+        <section className="product-reviews">
+          <div className="section-heading compact-heading">
+            <span className="eyebrow">Phản hồi</span>
+            <h2>Đánh giá của sản phẩm</h2>
+            {ratingStats.reviewCount > 0 && (
+              <p>
+                Điểm trung bình {averageRatingText}/5 từ {ratingStats.reviewCount} đánh giá.
+              </p>
+            )}
+          </div>
+          <div className="review-list">
+            {feedbacks.length > 0 ? (
+              feedbacks.map((feedback) => (
+                <FeedbackCard key={feedback.id} feedback={feedback} productName={product.name} />
+              ))
+            ) : (
+              <div className="empty-state">
+                <strong>Chưa có đánh giá</strong>
+                <p>Sản phẩm này chưa có phản hồi nào.</p>
+              </div>
+            )}
+          </div>
+        </section>
       </div>
     </section>
   );
