@@ -45,7 +45,7 @@
       "id": 1,
       "name": "Luffy Gear 5 Figure",
       "price": 890000,
-      "stock": 8,
+      "stock": 7,
       "categoryId": 1,
       "image": "https://th.bing.com/th/id/OIP.2YvC-WqO7gFkpFzNrqQ6EgHaEK?w=266&h=180&c=7&r=0&o=7&dpr=1.3&pid=1.7&rm=3",
       "description": "Mô hình One Piece Luffy Gear 5 cao cấp, trưng bày rất nổi bật.",
@@ -191,7 +191,7 @@
     {
       "userId": 3,
       "date": "2026-05-31",
-      "status": "Chờ xử lý",
+      "status": "Hoàn thành",
       "total": 890000,
       "customer": {
         "fullname": "Nguyễn Văn B",
@@ -208,6 +208,27 @@
         }
       ],
       "id": 5
+    },
+    {
+      "userId": 2,
+      "date": "2026-06-03",
+      "status": "Hoàn thành",
+      "total": 890000,
+      "customer": {
+        "fullname": "Nguyễn Văn A",
+        "phone": "09090909",
+        "address": "èweeư",
+        "note": "w"
+      },
+      "items": [
+        {
+          "productId": 1,
+          "name": "Luffy Gear 5 Figure",
+          "price": 890000,
+          "quantity": 1
+        }
+      ],
+      "id": 6
     }
   ],
   "feedbacks": [
@@ -216,7 +237,8 @@
       "productId": 1,
       "userId": 2,
       "rating": 5,
-      "comment": "Mô hình đẹp, đóng gói cẩn thận."
+      "comment": "Mô hình đẹp, đóng gói cẩn thận.",
+      "orderId": 1
     },
     {
       "id": 2,
@@ -224,6 +246,22 @@
       "userId": 2,
       "rating": 4,
       "comment": "Chi tiết sắc nét, dễ lắp ráp."
+    },
+    {
+      "userId": 2,
+      "productId": 1,
+      "rating": 1,
+      "comment": "tạm",
+      "id": 3,
+      "orderId": 2
+    },
+    {
+      "userId": 2,
+      "productId": 1,
+      "rating": 5,
+      "comment": "ok",
+      "id": 4,
+      "orderId": 3
     }
   ],
   "wishlists": [
