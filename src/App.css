@@ -147,6 +147,11 @@ button {
   text-overflow: ellipsis;
   white-space: nowrap;
   color: var(--muted);
+  font-weight: 650;
+}
+
+.user-chip:hover {
+  color: var(--primary-dark);
 }
 
 .solid-button,
